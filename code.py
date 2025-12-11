@@ -6,9 +6,9 @@ import os
 
 st.set_page_config(page_title="Social Media & Apathy Survey", layout="centered")
 st.title("Social Media Use & Apathy Level Assessment")
-st.caption("5COSC037C – Project 1 – Web version (+15 points)")
+st.caption("Assessment of the relationship between excessive use of social media and manifestations of apathy")
 
-# --- 10 типов данных ---
+# --10 types of variables--
 version_float = 2.0
 allowed_formats = frozenset({".json", ".csv", ".txt"})
 used_ids = st.session_state.get("used_ids", set())  # сохраняем между сессиями
@@ -16,7 +16,7 @@ debug = False
 max_questions = 20
 title_str = "Social Media Use & Apathy Level Assessment"
 
-# --- 20 вопросов ---
+# --- 20 Questions ---
 questions = [
     {"q": "I open social media even when I'm actively engaged in other things (studies, work).",
      "opts": [("Never",0), ("Rarely",1), ("Sometimes",2), ("Often",3), ("Always",4)]},
@@ -69,7 +69,7 @@ psych_states = {
     "Critically strong dependence – serious loss of life interest": (86, 100)
 }
 
-# --- Меню ---
+# --- Menu ---
 menu = st.sidebar.selectbox("Menu", [
     "2. Start new survey (embedded)",
     "1. Load existing result",
@@ -99,7 +99,7 @@ if menu == "3. Start new survey (from file)":
         except:
             st.error("Invalid file")
 
-# --- Начало опроса ---
+# --- Questionnaire start ---
 if "started" not in st.session_state:
     st.header("Personal Information")
     col1, col2 = st.columns(2)
@@ -125,7 +125,7 @@ if "started" not in st.session_state:
 
     st.stop()
 
-# --- Сам опрос ---
+# --- Main part ---
 if st.session_state.idx < len(current_questions):
     q = current_questions[st.session_state.idx]
     st.write(f"**Question {st.session_state.idx + 1}/{len(current_questions)}**")
@@ -139,7 +139,7 @@ if st.session_state.idx < len(current_questions):
 
     st.progress(st.session_state.idx / len(current_questions))
 
-# --- Результат ---
+# --- Result ---
 else:
     total = sum(a["score"] for a in st.session_state.answers)
     result = next((s for s, (l, h) in psych_states.items() if l <= total <= h), "Unknown")
@@ -178,3 +178,4 @@ else:
         txt = "\n".join(f"{k}: {v}" for k, v in data.items() if k != "answers")
         txt += "\n\nAnswers:\n" + "\n".join(f"Q: {a['q']}\nA: {a['answer']} (score: {a['score']})" for a in data["answers"])
         st.download_button("Download TXT", txt, f"{filename}.txt")
+
