@@ -1,23 +1,22 @@
+import streamlit as st
 import json
-import csv
 from datetime import datetime
 import re
 import os
 
-# -10 types of variables-
-version_float = 2.0                          # float
-allowed_formats = frozenset({".json", ".csv", ".txt"})  # frozenset
-used_ids = set()                                     # set
-student_record = {}                                  # dict
-answers_list = []                                    # list
-prefixes = ("Mr", "Ms", "Dr")                         # tuple
-question_range = range(1, 21)                        # range
-debug = False                                        # bool
-max_questions = 20                                   # int
-title_str = "Social Media Use & Apathy Level Assessment"  # str
-# ----------------------------------------------------
+st.set_page_config(page_title="Social Media & Apathy Survey", layout="centered")
+st.title("Social Media Use & Apathy Level Assessment")
+st.caption("5COSC037C – Project 1 – Web version (+15 points)")
 
-# -20 Questions implemented in code-
+# --- 10 типов данных ---
+version_float = 2.0
+allowed_formats = frozenset({".json", ".csv", ".txt"})
+used_ids = st.session_state.get("used_ids", set())  # сохраняем между сессиями
+debug = False
+max_questions = 20
+title_str = "Social Media Use & Apathy Level Assessment"
+
+# --- 20 вопросов ---
 questions = [
     {"q": "I open social media even when I'm actively engaged in other things (studies, work).",
      "opts": [("Never",0), ("Rarely",1), ("Sometimes",2), ("Often",3), ("Always",4)]},
@@ -46,7 +45,7 @@ questions = [
     {"q": "I stop following the progress of my friends in real life, preferring to monitor their online activity.",
      "opts": [("Totally disagree",0), ("Rather disagree",1), ("Neutral",2), ("Rather agree",3), ("Totally agree",4)]},
     {"q": "I became less sensitive to the need to help others or participate in social life.",
-     "opts": [("Totally disagree ",0), ("Rather disagree",1), ("Neutral",2), ("Rather agree",3), ("Totally agree",4)]},
+     "opts": [("Totally disagree",0), ("Rather disagree",1), ("Neutral",2), ("Rather agree",3), ("Totally agree",4)]},
     {"q": "The more time I spend on social media, the less energy I have for active actions in real life.",
      "opts": [("Totally disagree",1), ("Rather disagree",2), ("Neutral",3), ("Rather agree",4), ("Totally agree",5)]},
     {"q": "Scrolling through the news feed often makes me feel like I don't need to put in effort, because nothing will change anyway.",
@@ -61,236 +60,121 @@ questions = [
      "opts": [("Never",0), ("Rarely",1), ("Sometimes",2), ("Often",3), ("Always",4)]}
 ]
 
-# -6 Final states-
 psych_states = {
     "Missing/Very weak connection, High activity & motivation": (0, 32),
     "Weak connection – does not interfere with real life": (33, 45),
     "Moderate connection – symptoms noticeable but not dominant": (46, 58),
     "Pronounced connection – intensive SM use + clear apathy": (59, 71),
     "Strong connection – excessive use, high passivity": (72, 85),
-    "Critically strong dependence – serious loss of life interest, seek medical help": (86, 100)
+    "Critically strong dependence – serious loss of life interest": (86, 100)
 }
 
-# Functions
-def validate_name(name: str) -> bool:
-    return bool(re.match(r"^[A-Za-z\s'-]+$", name.strip())) and len(name.strip()) >= 2
+# --- Меню ---
+menu = st.sidebar.selectbox("Menu", [
+    "2. Start new survey (embedded)",
+    "1. Load existing result",
+    "3. Start new survey (from file)",
+    "4. Save questions + states"
+])
 
-def validate_dob(dob: str) -> bool:
-    try:
-        year, month, day = map(int, dob.split("-"))
-        date = datetime(year, month, day)
-        return date <= datetime.now()
-    except:
-        return False
+if menu == "4. Save questions + states":
+    data = {"questions": questions, "psychological_states": list(psych_states.items())}
+    st.download_button("Download questions_and_states.json", json.dumps(data, indent=2, ensure_ascii=False), "survey_questions_and_states.json")
+    st.stop()
 
-def load_questions_from_file(path: str):
-    path = path.strip().strip('"\'')
-    
-    if not os.path.exists(path):
-        print("File not found. Check the path.")
-        return None
-        
-    if not path.lower().endswith(".json"):
-        print("Works with .json files")
-        return None
-        
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
+if menu == "1. Load existing result":
+    uploaded = st.file_uploader("Upload result (.json/.csv/.txt)", type=["json", "csv", "txt"])
+    if uploaded:
+        st.code(uploaded.read().decode("utf-8"))
+    st.stop()
 
-        # Two formats:
-        if isinstance(data, list):
-            # file - list od questions
-            loaded_questions = data
-        elif isinstance(data, dict):
-            # file - dictionary with "questions" key
-            loaded_questions = data.get("questions", [])
-        else:
-            print("Invalid file format")
-            return None
+current_questions = questions
+if menu == "3. Start new survey (from file)":
+    uploaded = st.file_uploader("Upload questions.json", type="json", key="qfile")
+    if uploaded:
+        try:
+            data = json.load(uploaded)
+            current_questions = data if isinstance(data, list) else data.get("questions", questions)
+            st.success(f"Loaded {len(current_questions)} questions")
+        except:
+            st.error("Invalid file")
 
-        if len(loaded_questions) < 10:
-            print("Number of questions should be more than 10")
-            return None
-            
-        print(f"Successfully loaded {len(loaded_questions)} from file.")
-        return loaded_questions
-        
-    except Exception as e:
-        print(f"Error in reading the file: {e}")
-        return None
+# --- Начало опроса ---
+if "started" not in st.session_state:
+    st.header("Personal Information")
+    col1, col2 = st.columns(2)
+    with col1:
+        name = st.text_input("Given name", placeholder="Nodixon")
+        surname = st.text_input("Surname", placeholder="Saibov")
+    with col2:
+        dob = st.text_input("Date of birth (YYYY-MM-DD)", placeholder="2005-05-26")
+        sid = st.text_input("Student ID", placeholder="17665")
 
-def save_questions_and_states():
-    data = {
-        "questions": questions,
-        "psychological_states": list(psych_states.items())
-    }
-    with open("survey_questions_and_states.json", "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
-    print("Saved: survey_questions_and_states.json")
-
-# -Questionnaire-
-def run_survey(q_list):
-    total = 0
-    answers_list.clear()
-    
-    for idx in question_range:
-        q = q_list[idx-1]
-        
-        # Questions implementation
-        question_text = q.get("q") or q.get("text") or q.get("question", "No question")
-        
-        # Answers implementation
-        raw_opts = q.get("opts") or q.get("options") or q.get("answers", [])
-        
-        # Everything in one type: [["Never",0], ...]
-        options = []
-        for item in raw_opts:
-            if isinstance(item, dict):
-                text = item.get("text", item.get("answer", "???"))
-                score = item.get("score", item.get("value", 0))
-            elif isinstance(item, (list, tuple)):
-                text = item[0]
-                score = item[1] if len(item) > 1 else 0
-            else:
-                text = str(item)
-                score = 0
-            options.append([text, score])
-        
-        if len(options) != 5:
-            print("Error: There should be 5 answer options")
-            continue
-            
-        print(f"\nQuestion {idx}/{max_questions}: {question_text}")
-        for i, (text, score) in enumerate(options, 1):
-            print(f"  {i}. {text}")
-            
-        while True:
-            try:
-                choice = int(input("Choose (1-5): "))
-                if 1 <= choice <= 5:
-                    selected = options[choice-1]
-                    total += selected[1]
-                    answers_list.append({
-                        "question": question_text,
-                        "answer": selected[0],
-                        "score": selected[1]
-                    })
-                    break
-            except:
-                pass
-            print("Enter a number between 1-5")
-    
-    return total
-
-def get_result(score: int) -> str:
-    for state, (low, high) in psych_states.items():
-        if low <= score <= high:
-            return state
-    return "Unknown"
-
-# -Saving results: 3 types-
-def save_result(fmt: str, data: dict):
-    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"result_{data['student_id']}_{ts}.{fmt}"
-    if fmt == "json":
-        with open(filename, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
-    elif fmt == "csv":
-        with open(filename, "w", newline="", encoding="utf-8") as f:
-            w = csv.writer(f)
-            w.writerow(["Field", "Value"])
-            for k, v in data.items():
-                w.writerow([k, str(v)])
-    else:  # txt
-        with open(filename, "w", encoding="utf-8") as f:
-            for k, v in data.items():
-                f.write(f"{k}: {v}\n")
-    print(f"Saved: {filename}")
-
-# -Main-
-def main():
-    print("="*70)
-    print(title_str.center(70))
-    print("="*70)
-    print("1. Load existing result file")
-    print("2. Start new questionnaire (embedded questions)")
-    print("3. Start new questionnaire (load questions from file)")
-    print("4. Save survey questions + psychological states to external file")
-    
-    choice = input("\nSelect (1-4): ").strip()
-
-    if choice == "4":
-        save_questions_and_states()
-        return
-    if choice == "1":
-        path = input("File name: ")
-        if os.path.exists(path):
-            with open(path, "r", encoding="utf-8") as f:
-                print(f.read())
-        else:
-            print("File not found")
-        return
-
-    # Data entry with validation
-    while True:
-        name = input("Given name: ").strip()
-        if validate_name(name): break
-        print("Only letters, space, -, '")
-
-    while True:
-        surname = input("Surname: ").strip()
-        if validate_name(surname): break
-        print("Only letters, space, -, '")
-
-    while True:
-        dob = input("Date of birth (YYYY-MM-DD): ")
-        if validate_dob(dob): break
-        print("Invalid date")
-
-    while True:
-        sid = input("Student ID (digits only): ").strip()
-        if sid.isdigit() and len(sid) >= 5 and sid not in used_ids:
+    if st.button("Start Survey", key="start_survey"):
+        if (name.strip() and surname.strip() and
+            re.match(r"^\d{4}-\d{2}-\d{2}$", dob) and
+            sid.isdigit() and len(sid) >= 5 and sid not in used_ids):
             used_ids.add(sid)
-            break
-        print("Invalid or duplicate ID")
+            st.session_state.update({
+                "name": name.strip(), "surname": surname.strip(),
+                "dob": dob, "sid": sid, "answers": [], "idx": 0, "started": True
+            })
+            st.rerun()
+        else:
+            st.error("Check data: name/surname not empty, date YYYY-MM-DD, ID ≥5 digits and unique")
 
-    # Questions choice
-    current_questions = questions
-    if choice == "3":
-        path = input("Path to questions file (.json): ")
-        loaded = load_questions_from_file(path)
-        if loaded:
-            current_questions = loaded
-            print(f"Loaded {len(loaded)} questions from file")
+    st.stop()
 
-    # Questionnaire
-    total_score = run_survey(current_questions)
-    result = get_result(total_score)
+# --- Сам опрос ---
+if st.session_state.idx < len(current_questions):
+    q = current_questions[st.session_state.idx]
+    st.write(f"**Question {st.session_state.idx + 1}/{len(current_questions)}**")
+    st.write(q["q"])
 
-    print(f"\n{'='*30} RESULT {'='*30}")
-    print(f"Name: {name} {surname} | ID: {sid}")
-    print(f"Total score: {total_score}/100")
-    print(f"Result: {result}")
+    for i, (text, score) in enumerate(q["opts"]):
+        if st.button(text, key=f"q{st.session_state.idx}_opt{i}"):
+            st.session_state.answers.append({"q": q["q"], "answer": text, "score": score})
+            st.session_state.idx += 1
+            st.rerun()
 
-    # Saving results
-    fmt = input("Save as (json/csv/txt) [json]: ").lower().strip() or "json"
-    if fmt not in ["json", "csv", "txt"]:
-        fmt = "json"
+    st.progress(st.session_state.idx / len(current_questions))
 
-    student_record = {
-        "given_name": name,
-        "surname": surname,
-        "dob": dob,
-        "student_id": sid,
-        "total_score": total_score,
+# --- Результат ---
+else:
+    total = sum(a["score"] for a in st.session_state.answers)
+    result = next((s for s, (l, h) in psych_states.items() if l <= total <= h), "Unknown")
+    st.balloons()
+    st.success(f"**{result}** (Score: {total}/100)")
+
+    data = {
+        "given_name": st.session_state.name,
+        "surname": st.session_state.surname,
+        "dob": st.session_state.dob,
+        "student_id": st.session_state.sid,
+        "total_score": total,
         "result": result,
-        "answers": answers_list,
+        "answers": st.session_state.answers,
         "survey_date": datetime.now().isoformat(),
         "version": version_float
     }
 
-    save_result(fmt, student_record)
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"result_{st.session_state.sid}_{ts}"
 
-if __name__ == "__main__":
-    main()
+    fmt = st.selectbox("Save as", ["json", "csv", "txt"])
+    if fmt == "json":
+        st.download_button("Download JSON", json.dumps(data, indent=2, ensure_ascii=False), f"{filename}.json")
+    elif fmt == "csv":
+        csv_lines = ["Field,Value"]
+        for k, v in data.items():
+            if k != "answers":
+                csv_lines.append(f"{k},{v}")
+        for a in data["answers"]:
+            csv_lines.append(f"Question,{a['q']}")
+            csv_lines.append(f"Answer,{a['answer']}")
+            csv_lines.append(f"Score,{a['score']}")
+        st.download_button("Download CSV", "\n".join(csv_lines), f"{filename}.csv")
+    else:
+        txt = "\n".join(f"{k}: {v}" for k, v in data.items() if k != "answers")
+        txt += "\n\nAnswers:\n" + "\n".join(f"Q: {a['q']}\nA: {a['answer']} (score: {a['score']})" for a in data["answers"])
+        st.download_button("Download TXT", txt, f"{filename}.txt")
