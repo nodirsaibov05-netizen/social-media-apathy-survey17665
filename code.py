@@ -61,12 +61,14 @@ questions = [
 ]
 
 psych_states = {
-    "Missing/Very weak connection, High activity & motivation": (0, 32),
-    "Weak connection – does not interfere with real life": (33, 45),
-    "Moderate connection – symptoms noticeable but not dominant": (46, 58),
-    "Pronounced connection – intensive SM use + clear apathy": (59, 71),
-    "Strong connection – excessive use, high passivity": (72, 85),
-    "Critically strong dependence – serious loss of life interest": (86, 100)
+    "Missing/Very weak connection, High activity & motivation. 
+    There are no symptoms of apathy; the use of social media is under complete control, without causing procrastination. Life activity, motivation and interest in real hobbies remain at a very high level.
+": (0, 32),
+    "Weak connection – does not interfere with real life. The use of social media is moderate and does not have a significant negative impact on the daily routine or emotional background. Any signs of apathy are minimal and are most likely caused by other factors unrelated to online activity.": (33, 45),
+    "Moderate connection – symptoms noticeable but not dominant. The time spent on social media is noticeably increasing, which sometimes leads to passive consumption of content and reduced motivation to perform complex tasks. There is a moderate risk of developing apathy, as social media begins to be used as a means of avoidance": (46, 58),
+    "Pronounced connection – intensive SM use + clear apathy. Heavy use of SM correlates with overt manifestations of apathy, such as emotional lethargy and lack of goals. Time spent online significantly displaces productive activities and social contacts in the real world": (59, 71),
+    "Strong connection – excessive use, high passivity. Social media activity becomes almost obsessive and dominant, which is accompanied by significant manifestations of apathy (loss of meaning, complete indifference). There is a high degree of inertia and passivity that requires attention to behavioral patterns.": (72, 85),
+    "Critically strong dependence – serious loss of life interest. This condition indicates a critical dependence on SM and the accompanying deep apathy, in which there is a complete lack of will and motivation. A malfunction requires examination by a specialist and, possibly, psychological intervention.": (86, 100)
 }
 
 # --- Menu ---
@@ -178,4 +180,5 @@ else:
         txt = "\n".join(f"{k}: {v}" for k, v in data.items() if k != "answers")
         txt += "\n\nAnswers:\n" + "\n".join(f"Q: {a['q']}\nA: {a['answer']} (score: {a['score']})" for a in data["answers"])
         st.download_button("Download TXT", txt, f"{filename}.txt")
+
 
